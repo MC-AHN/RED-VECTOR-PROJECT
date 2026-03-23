@@ -1,9 +1,8 @@
-use std::fs::File;
 use std::io::{self, Write};
 use std::process::Command;
 
 fn main() -> io::Result<()> {
-    println!("=== RED VECTORE GENERATOR v0.2 ===");
+    println!("=== RED VECTORE GENERATOR v0.3 ===");
     println!("To be Fast and Efesien");
 
     //
@@ -22,7 +21,7 @@ fn main() -> io::Result<()> {
     match status {
         Ok(s) if s.success() => {
             // input data
-            println!("URL Supabase: ");
+            print!("URL Supabase: ");
             io::stdout().flush()?;
             let mut url = String::new();
             io::stdin().read_line(&mut url)?;
@@ -45,6 +44,50 @@ fn main() -> io::Result<()> {
             std::fs::write(path_env, content)?;
 
             println!("Successfully, file .env are created");
+
+            println!("Connection to Red Vector Cloud...");
+
+            Command::new("git")
+                .arg("init")
+                .current_dir(name_project)
+                .status()?;
+
+            // add to stage index
+            Command::new("git")
+                .arg("add")
+                .arg(".")
+                .current_dir(name_project)
+                .status()?;
+
+            // commit
+            Command::new("git")
+                .arg("commit")
+                .arg("-m")
+                .arg("Initial commit by Red Vector Engine")
+                .current_dir(name_project)
+                .status()?;
+
+            // info
+            println!("[INFO] Code Alredy send to repository");
+
+            let repo_url = format!("git@github.com:MC-AHN/RED-VECTOR-PROJECT.git");
+            Command::new("git")
+                .arg("remote")
+                .arg("add")
+                .arg("origin")
+                .arg(&repo_url)
+                .current_dir(name_project)
+                .status()?;
+
+            Command::new("git")
+                .arg("push")
+                .arg("-u")
+                .arg("origin")
+                .arg("master")
+                .current_dir(name_project)
+                .status()?;
+
+            println!("[INFO] Code for '{}' successfully sent to repository", name_project);
         }
         _ => {
             println!("[ERROR] Failed to create project");
