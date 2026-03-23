@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::process::Command;
 
 fn main() -> io::Result<()> {
-    println!("=== RED VECTORE GENERATOR v0.3 ===");
+    println!("=== RED VECTORE GENERATOR v0.5 ===");
     println!("To be Fast and Efesien");
 
     //
@@ -106,6 +106,71 @@ fn main() -> io::Result<()> {
                 .status()?;
 
             println!("[INFO] Code for '{}' successfully sent to repository", name_project);
+
+            println!("Starting level 2: The Logic Injector v0.5.0..");
+            
+            // add library
+            Command::new("cargo")
+                .arg("add")
+                .arg("axum")
+                .arg("tokio")
+                .arg("reqwest")
+                .arg("serde")
+                .arg("serde_json")
+                .arg("dotenvy")
+                .arg("--features")
+                .arg("tokio/full,reqwest/json")
+                .current_dir(name_project)
+                .status()?;
+
+            //
+            println!("");
+            let master_template =  r#"
+                use axum::{routing::get, Json, Router};
+                use serde_json::{json, Value};
+                use std::net::SocketAddr;
+
+                #[tokio::main]
+                async fn main() {
+                    dotenvy::dotenv().ok();
+                    let app = Router::new().route("/", get(health_check));
+                    let addr = SocketAddr::from(([0,0,0,0], 8000));
+                    println!("[RED VECTOR] API Live at http://{}", addr);
+                    axum::Server::bind(&addr).serve(app.into_make_service()).await.unwrap()?;
+                }
+
+                async fn health_check() -> Json<Value> {
+                let url = std::env::var("SUPABASE_URL").unwrap_or_default();
+                let key = std::env::var("SUPABASE_KEY").unwrap_or_default();
+                let client = reqwest::Client::new();
+
+                //
+                let response = client.get(format!("{}/rest/v1/",url))
+                    .header("apikey", &key)
+                    .header("Authorization", format!("Bearer {}", key))
+                    .send().await;
+
+                let (db_status, msg) = match response {
+                Ok(res) if res.status().is_success() => ("Connected", "key is valid"),
+                Ok(res) if res.status().as_u16() == 401 => ("Unauthorized", "Key is Invalid."),
+                _ => ("Failed", "URL Supabase can't use."),
+                };
+
+                Json(json!({
+                    "status": if db_status == "Connected" {"Operational"} else {"Error"},
+                    "diagnostics": {
+                        "supabase": db_status,
+                        "message": msg,
+                        "engine": "Red Vector v0.5"
+                    }
+                }))
+            }
+            "#;
+
+            let main_rs_path = format!("{}/src/main.rs", name_project);
+            std::fs::write(main_rs_path, master_template)?;
+
+            println!("[SUCCESS] Logic v0.5 Successfully!");
         }
         _ => {
             println!("[ERROR] Failed to create project");
