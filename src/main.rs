@@ -45,12 +45,39 @@ fn main() -> io::Result<()> {
 
             println!("Successfully, file .env are created");
 
+            // 
+            let gitignore_path = format!("{}/.gitignore", name_project);
+            let gitignore_content = ".env\n/target\nCargo.lock";
+            std::fs::write(gitignore_path, gitignore_content)?;
+
             println!("Connection to Red Vector Cloud...");
 
             Command::new("git")
                 .arg("init")
                 .current_dir(name_project)
                 .status()?;
+
+            Command::new("git")
+                .arg("branch")
+                .arg("-M")
+                .arg("main")
+                .current_dir(name_project)
+                .status()?;
+
+            // create repo
+            let gh_status = Command::new("gh")
+                .arg("repo")
+                .arg("create")
+                .arg(name_project)
+                .arg("--private")
+                .arg("--source=.")
+                .arg("--remote=origin")
+                .current_dir(name_project)
+                .status()?;
+
+            if gh_status.success() {
+                println!("[INFO] Repo Private '{}' successfully created in github", name_project);
+            }
 
             // add to stage index
             Command::new("git")
@@ -70,20 +97,11 @@ fn main() -> io::Result<()> {
             // info
             println!("[INFO] Code Alredy send to repository");
 
-            let repo_url = format!("git@github.com:MC-AHN/RED-VECTOR-PROJECT.git");
-            Command::new("git")
-                .arg("remote")
-                .arg("add")
-                .arg("origin")
-                .arg(&repo_url)
-                .current_dir(name_project)
-                .status()?;
-
             Command::new("git")
                 .arg("push")
                 .arg("-u")
                 .arg("origin")
-                .arg("master")
+                .arg("main")
                 .current_dir(name_project)
                 .status()?;
 
