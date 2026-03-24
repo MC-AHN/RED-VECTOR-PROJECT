@@ -29,12 +29,18 @@ fn main() -> io::Result<()> {
             let mut key = String::new();
             io::stdin().read_line(&mut key)?;
 
+            print!("Database Url: ");
+            io::stdout().flush()?;
+            let mut database = String::new();
+            io::stdin().read_line(&mut database)?;
+
             // delete space in url
             let url = url.trim();
             let key = key.trim();
+            let database = database.trim();
 
             //
-            let content = format!("SUPABASE_URL={}\nSUPABASE_KEY={}\n", url, key);
+            let content = format!("SUPABASE_URL={}\nSUPABASE_KEY={}\nDATABASE_URL={}\n", url, key, database);
 
             //
             let path_env = format!("{}/.env", name_project);
@@ -123,6 +129,9 @@ fn main() -> io::Result<()> {
                 .arg("dotenvy")
                 .arg("--features")
                 .arg("tokio/full,reqwest/json")
+                .arg("sqlx")
+                .arg("--features")
+                .arg("sqlx/postgres,sqlx/runtime-tokio-native-tls,sqlx/macros")
                 .current_dir(name_project)
                 .status()?;
 
@@ -132,9 +141,10 @@ fn main() -> io::Result<()> {
                 use axum::{routing::get, Json, Router};
                 use serde_json::{json, Value};
                 use std::net::SocketAddr;
+                use sqlx::postgres::PgPoolOptions;
 
                 #[tokio::main]
-                async fn main() -> Result<(), Box<dyn std::error:Error>> {
+                async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     dotenvy::dotenv().ok();
 
                     // inisialisasi table
@@ -142,23 +152,32 @@ fn main() -> io::Result<()> {
 
                     let app = Router::new().route("/", get(health_check));
                     let addr = SocketAddr::from(([0,0,0,0], 8000));
+                    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
                     println!("[RED VECTOR] API Live at http://{}", addr);
-                    axum::Server::bind(&addr).serve(app.into_make_service()).await.unwrap()?;
+                    axum::serve(listener, app).await?;
+                    Ok(())
                 }
 
                 async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
                     let url = std::env::var("SUPABASE_URL")?;
                     let key = std::env::var("SUPABASE_KEY")?;
+                    let db_url = std::env::var("DATABASE_URL")?;
                     let client = reqwest::Client::new();
+                    let pool = PgPoolOptions::new()
+                        .max_connections(5)
+                        .connect(&db_url)
+                        .await?;
 
-                    let sql_query = "
+                    sqlx::query("
                         CREATE TABLE IF NOT EXISTS profiles (
                             id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
                             username text UNIQUE NOT NULL,
-                            create_at timestampz DEFAULT now()
+                            create_at timestamptz DEFAULT now()
                         );
-                    ";
-
+                    ")
+                    .execute(&pool)
+                    .await?;
+                        
                     println!("[LEVEL 3] Database Schema Chacked/Applied.");
                     Ok(())
                 }
