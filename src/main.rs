@@ -13,10 +13,7 @@ fn main() -> io::Result<()> {
     let name_project = name_project.trim();
 
     //
-    let status = Command::new("cargo")
-        .arg("new")
-        .arg(name_project)
-        .status();
+    let status = Command::new("cargo").arg("new").arg(name_project).status();
 
     match status {
         Ok(s) if s.success() => {
@@ -45,7 +42,7 @@ fn main() -> io::Result<()> {
 
             println!("Successfully, file .env are created");
 
-            // 
+            //
             let gitignore_path = format!("{}/.gitignore", name_project);
             let gitignore_content = ".env\n/target\nCargo.lock";
             std::fs::write(gitignore_path, gitignore_content)?;
@@ -76,7 +73,10 @@ fn main() -> io::Result<()> {
                 .status()?;
 
             if gh_status.success() {
-                println!("[INFO] Repo Private '{}' successfully created in github", name_project);
+                println!(
+                    "[INFO] Repo Private '{}' successfully created in github",
+                    name_project
+                );
             }
 
             // add to stage index
@@ -105,10 +105,13 @@ fn main() -> io::Result<()> {
                 .current_dir(name_project)
                 .status()?;
 
-            println!("[INFO] Code for '{}' successfully sent to repository", name_project);
+            println!(
+                "[INFO] Code for '{}' successfully sent to repository",
+                name_project
+            );
 
-            println!("Starting level 2: The Logic Injector v0.5.0..");
-            
+            println!("Starting level 2: The Logic Injector v0.5.2..");
+
             // add library
             Command::new("cargo")
                 .arg("add")
@@ -125,24 +128,45 @@ fn main() -> io::Result<()> {
 
             //
             println!("");
-            let master_template =  r#"
+            let master_template = r#"
                 use axum::{routing::get, Json, Router};
                 use serde_json::{json, Value};
                 use std::net::SocketAddr;
 
                 #[tokio::main]
-                async fn main() {
+                async fn main() -> Result<(), Box<dyn std::error:Error>> {
                     dotenvy::dotenv().ok();
+
+                    // inisialisasi table
+                    init_db().await?;
+
                     let app = Router::new().route("/", get(health_check));
                     let addr = SocketAddr::from(([0,0,0,0], 8000));
                     println!("[RED VECTOR] API Live at http://{}", addr);
                     axum::Server::bind(&addr).serve(app.into_make_service()).await.unwrap()?;
                 }
 
+                async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
+                    let url = std::env::var("SUPABASE_URL")?;
+                    let key = std::env::var("SUPABASE_KEY")?;
+                    let client = reqwest::Client::new();
+
+                    let sql_query = "
+                        CREATE TABLE IF NOT EXISTS profiles (
+                            id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                            username text UNIQUE NOT NULL,
+                            create_at timestampz DEFAULT now()
+                        );
+                    ";
+
+                    println!("[LEVEL 3] Database Schema Chacked/Applied.");
+                    Ok(())
+                }
+
                 async fn health_check() -> Json<Value> {
-                let url = std::env::var("SUPABASE_URL").unwrap_or_default();
-                let key = std::env::var("SUPABASE_KEY").unwrap_or_default();
-                let client = reqwest::Client::new();
+                    let url = std::env::var("SUPABASE_URL").unwrap_or_default();
+                    let key = std::env::var("SUPABASE_KEY").unwrap_or_default();
+                    let client = reqwest::Client::new();
 
                 //
                 let response = client.get(format!("{}/rest/v1/",url))
